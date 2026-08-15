@@ -2,9 +2,9 @@
 
 Local inventory app for TechPanda electronics components.
 
-## Downloads
+## App Download
 
-- Windows: `TechPandaInventorySetup.exe`
-- Android: `TechPandaInventory.apk`
+- [Download Windows Setup](./TechPandaInventorySetup.exe)
+- [Download Android APK](./TechPandaInventory.apk)
 
 YouTube: https://www.youtube.com/@TechPanda-4k
