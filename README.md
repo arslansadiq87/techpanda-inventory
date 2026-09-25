@@ -66,15 +66,23 @@ The script automatically packages the application (including the production Flut
 
 ---
 
-### Option 2: Deploy Directly on the Linux Server
+### Option 2: One-Command Deployment Directly on Linux
 
-1. Copy or clone the repository to your Linux server.
-2. Make `deploy.sh` executable and run it:
-   ```bash
-   chmod +x deploy.sh
-   ./deploy.sh
-   ```
-3. Paste your Cloudflare Tunnel Token when prompted.
+On a fresh Ubuntu/Debian server, run this single command:
+
+```bash
+git clone -b main https://github.com/arslansadiq87/techpanda-inventory.git ~/techpanda_inventory && cd ~/techpanda_inventory && chmod +x deploy.sh && ./deploy.sh
+```
+
+The script fetches the complete repository, installs Docker and Docker Compose if needed, asks for the Cloudflare Tunnel Token and initial application admin password, generates the JWT secret, builds the containers, runs migrations, and starts the application.
+
+For a later update on the same server:
+
+```bash
+cd ~/techpanda_inventory && git pull origin main && ./deploy.sh
+```
+
+Do not put passwords or tunnel tokens in the command line or in Git. The deployment script stores them in the server-only `.env` file.
 
 The script will automatically:
 - Install Docker & Docker Compose if not already present.

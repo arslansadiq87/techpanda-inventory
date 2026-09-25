@@ -8,6 +8,14 @@ The source is released under the MIT License. See `LICENSE` and `SECURITY.md` be
 
 ### Inventory app and API
 
+For a one-command Linux deployment from the public repository:
+
+```bash
+git clone -b main https://github.com/arslansadiq87/techpanda-inventory.git ~/techpanda_inventory && cd ~/techpanda_inventory && chmod +x deploy.sh && ./deploy.sh
+```
+
+The script prompts securely for the Cloudflare Tunnel Token and initial application admin password, then builds and starts the deployment.
+
 ```powershell
 Copy-Item .env.example .env
 # Set JWT_SECRET and ADMIN_PASSWORD to long, unique values in .env.
