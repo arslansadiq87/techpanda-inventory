@@ -1,0 +1,32 @@
+# API Summary
+
+Base path: `/api/v1`
+
+- `GET /health/live`
+- `GET /health/ready`
+- `GET /health/version`
+- `POST /auth/login`
+- `GET /auth/me`
+- `POST /auth/change-password`
+- `POST /auth/logout`
+- `GET /categories`
+- `POST /categories`
+- `GET /components`
+- `POST /components`
+- `GET /components/{component_id}`
+- `POST /components/{component_id}/images`
+- `POST /transactions`
+- `GET /transactions`
+- `GET /transactions/{transaction_id}`
+- `PUT /transactions/{transaction_id}`
+- `DELETE /transactions/{transaction_id}`
+- `POST /projects`
+- `GET /projects`
+- `GET /projects/{project_id}/components`
+- `PUT /projects/{project_id}/components`
+- `PUT /projects/{project_id}/components/{component_id}`
+- `DELETE /projects/{project_id}/components/{component_id}`
+- `GET /dashboard`
+- `GET /reports/inventory.csv`
+- `GET /reports/inventory.pdf`
+- `POST /backups/manual`

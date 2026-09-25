@@ -1,0 +1,23 @@
+;Auto-generated Diamond Directive File. Can be deleted without harm.
+.Set CabinetNameTemplate=F:\TechPanda\Media\electronix inventory\flutter_inventory\deployment\windows\~TechPandaInventorySetup_Youtube.CAB
+.Set CompressionType=LZX
+.Set CompressionLevel=7
+.Set InfFileName=F:\TechPanda\Media\electronix inventory\flutter_inventory\deployment\windows\~TechPandaInventorySetup_Youtube_LAYOUT.INF
+.Set RptFileName=F:\TechPanda\Media\electronix inventory\flutter_inventory\deployment\windows\~TechPandaInventorySetup_Youtube.RPT
+.Set MaxDiskSize=CDROM
+.Set ReservePerCabinetSize=0
+.Set InfCabinetLineFormat=*cab#*=Application Source Media,*cabfile*,0
+.Set Compress=on
+.Set CompressionMemory=21
+.Set DiskDirectoryTemplate=
+.Set Cabinet=ON
+.Set MaxCabinetSize=999999999
+.Set InfDiskHeader=
+.Set InfDiskLineFormat=
+.Set InfCabinetHeader=[SourceDisksNames]
+.Set InfFileHeader=
+.Set InfFileHeader1=[SourceDisksFiles]
+.Set InfFileLineFormat=*file*=*cab#*,,*size*,*csum*
+"F:\TechPanda\Media\electronix inventory\flutter_inventory\deployment\windows\install.cmd"
+"F:\TechPanda\Media\electronix inventory\flutter_inventory\deployment\windows\install.ps1"
+"F:\TechPanda\Media\electronix inventory\flutter_inventory\deployment\windows\TechPandaInventory.zip"

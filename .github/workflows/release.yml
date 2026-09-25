@@ -1,0 +1,32 @@
+name: Release packages
+
+on:
+  workflow_dispatch:
+  release:
+    types: [created]
+
+jobs:
+  packages:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.6'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+        working-directory: flutter_app
+      - run: flutter build apk --release
+        working-directory: flutter_app
+      - run: flutter build windows --release
+        working-directory: flutter_app
+      - name: Package Windows
+        shell: pwsh
+        run: Compress-Archive -Path flutter_app/build/windows/x64/runner/Release/* -DestinationPath TechPandaInventory-windows.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TechPandaInventory-release
+          path: |
+            flutter_app/build/app/outputs/flutter-apk/app-release.apk
+            TechPandaInventory-windows.zip

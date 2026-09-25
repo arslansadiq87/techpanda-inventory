@@ -1,0 +1,35 @@
+{
+    "name": "Tech Panda Inventory",
+    "short_name": "Tech Panda",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#F4F8F7",
+    "theme_color": "#0B7775",
+    "description": "Electronics component inventory management.",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "techpanda.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "techpanda.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "techpanda.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "techpanda.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}

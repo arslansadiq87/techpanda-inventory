@@ -1,0 +1,2945 @@
+# Build and Deploy a Complete Self-Hosted Electronics Inventory Application
+
+You are an expert Flutter, FastAPI, PostgreSQL, Docker, Linux, security, and deployment engineer.
+
+Create and deploy a complete self-hosted application called:
+
+# Tech Panda Components Inventory
+
+The application will be used by an electronics hobbyist and YouTube creator to manage approximately 500–2,000 electronic components, modules, development boards, tools, consumables, and project stock.
+
+The application must work on:
+
+* Android phones and tablets
+* Windows computers through a web browser
+* Linux and macOS web browsers where needed
+* An optional installable Progressive Web App where supported
+
+The user already has an always-online Linux computer with SSH access enabled.
+
+All application data must be hosted on the user’s Linux computer.
+
+Do not use:
+
+* Firebase
+* Supabase
+* AWS
+* Google Cloud
+* Azure
+* MongoDB Atlas
+* Any required paid cloud database
+* Any required external image-storage service
+* Any required external authentication service
+
+The entire application must remain functional using the user’s own Linux computer.
+
+Build the complete application, test it, configure Docker deployment, connect to the Linux server through SSH when deployment credentials are available, deploy the system, run database migrations, create the administrator account, perform health checks, and report the final deployment result.
+
+Do not stop after generating an outline or sample code.
+
+---
+
+# 1. Main Objectives
+
+The application must allow the user to:
+
+1. Add electronic components and modules.
+2. Categorize different types of components.
+3. Store category-specific technical specifications.
+4. Add components with or without pictures.
+5. Add multiple components to stock in one transaction.
+6. Remove multiple components from stock in one transaction.
+7. Associate consumed components with projects and YouTube videos.
+8. Return unused components to inventory.
+9. Record damaged, lost, or discarded components.
+10. Perform physical stock counts.
+11. Adjust stock without destroying transaction history.
+12. Find components with minimal keyboard input.
+13. Scan component and storage-location QR codes.
+14. Access the same inventory from Android and Windows.
+15. Cache inventory locally for offline viewing.
+16. Prepare stock transactions while offline.
+17. Synchronize offline drafts when the server becomes available.
+18. Store component pictures on the Linux server.
+19. Create automatic database and image backups.
+20. Export reports as CSV, JSON, and PDF where appropriate.
+
+This is primarily a private, single-owner application.
+
+Design the database so additional users can be added later, but do not create unnecessary enterprise complexity.
+
+---
+
+# 2. Required Architecture
+
+Use the following architecture:
+
+## Client Applications
+
+One Flutter codebase targeting:
+
+* Android
+* Flutter Web
+* Optional PWA installation
+
+## Backend
+
+Use:
+
+* Python
+* FastAPI
+* Pydantic
+* SQLAlchemy 2.x
+* Alembic database migrations
+* PostgreSQL
+* Pillow for image resizing and thumbnail generation
+* Argon2 password hashing
+* JWT access and refresh tokens
+* Structured application logging
+* OpenAPI documentation during development
+
+## Local Client Storage
+
+Use a maintained Flutter local database package that supports Android and web.
+
+Prefer Drift if it supports all required current target platforms.
+
+Local storage should contain:
+
+* Cached component summaries
+* Cached categories
+* Cached locations
+* Cached projects
+* Offline transaction drafts
+* Pending image uploads
+* User preferences
+* Search history
+* Recent items
+
+Do not store plaintext passwords or long-lived secrets in normal local storage.
+
+On Android, use secure storage for authentication refresh tokens.
+
+## Deployment
+
+Use:
+
+* Docker Engine
+* Docker Compose
+* Caddy
+* PostgreSQL Docker container
+* FastAPI Docker container
+* Flutter Web static build
+* Automatic backup service or scheduled backup script
+* Tailscale for secure private remote access
+
+Recommended network flow:
+
+```text
+Android Flutter App ──────┐
+                          │
+Windows Web Browser ──────┼── Tailscale Private Network
+                          │
+Flutter Web/PWA ──────────┘
+                                   │
+                                   ▼
+                              Linux Server
+                         ┌─────────────────────┐
+                         │ Caddy HTTPS Proxy   │
+                         │ Flutter Web Files   │
+                         │ FastAPI Backend     │
+                         │ PostgreSQL          │
+                         │ Component Images    │
+                         │ Automatic Backups   │
+                         └─────────────────────┘
+```
+
+Do not expose PostgreSQL directly to the internet or local network.
+
+---
+
+# 3. Repository Structure
+
+Create a single repository similar to:
+
+```text
+tech-panda-inventory/
+├── README.md
+├── .gitignore
+├── .env.example
+├── .env.deploy.example
+├── docker-compose.yml
+├── docker-compose.dev.yml
+├── Makefile
+│
+├── flutter_app/
+│   ├── android/
+│   ├── web/
+│   ├── lib/
+│   │   ├── app/
+│   │   ├── core/
+│   │   ├── data/
+│   │   ├── domain/
+│   │   ├── features/
+│   │   ├── services/
+│   │   ├── shared/
+│   │   └── main.dart
+│   ├── test/
+│   ├── integration_test/
+│   └── pubspec.yaml
+│
+├── backend/
+│   ├── app/
+│   │   ├── api/
+│   │   ├── auth/
+│   │   ├── core/
+│   │   ├── database/
+│   │   ├── models/
+│   │   ├── schemas/
+│   │   ├── repositories/
+│   │   ├── services/
+│   │   ├── inventory/
+│   │   ├── images/
+│   │   ├── backups/
+│   │   └── main.py
+│   ├── alembic/
+│   ├── tests/
+│   ├── pyproject.toml
+│   ├── Dockerfile
+│   └── alembic.ini
+│
+├── deployment/
+│   ├── Caddyfile
+│   ├── scripts/
+│   │   ├── bootstrap_server.sh
+│   │   ├── deploy.sh
+│   │   ├── rollback.sh
+│   │   ├── backup.sh
+│   │   ├── restore.sh
+│   │   ├── create_admin.sh
+│   │   ├── health_check.sh
+│   │   └── update.sh
+│   └── systemd/
+│
+├── scripts/
+│   ├── dev_start.sh
+│   ├── dev_stop.sh
+│   ├── test_all.sh
+│   ├── build_android.sh
+│   ├── build_web.sh
+│   └── deploy_remote.sh
+│
+└── docs/
+    ├── architecture.md
+    ├── api.md
+    ├── database.md
+    ├── backup_restore.md
+    ├── deployment.md
+    └── user_guide.md
+```
+
+Do not put the entire backend or Flutter interface into a few oversized files.
+
+---
+
+# 4. SSH Deployment Configuration
+
+Codex must support automatic deployment through SSH.
+
+Create `.env.deploy.example` with:
+
+```text
+INVENTORY_SSH_HOST=
+INVENTORY_SSH_PORT=22
+INVENTORY_SSH_USER=
+INVENTORY_SSH_KEY_PATH=
+INVENTORY_REMOTE_DIR=/opt/tech-panda-inventory
+
+INVENTORY_DEPLOYMENT_MODE=tailscale
+INVENTORY_TAILSCALE_HOSTNAME=tech-panda-inventory
+TAILSCALE_AUTHKEY=
+
+INVENTORY_PUBLIC_DOMAIN=
+INVENTORY_ADMIN_NAME=Arslan
+INVENTORY_ADMIN_EMAIL=
+INVENTORY_ADMIN_PASSWORD=
+
+INVENTORY_TIMEZONE=Asia/Karachi
+INVENTORY_DEFAULT_CURRENCY=CNY
+INVENTORY_BACKUP_RETENTION_DAYS=30
+INVENTORY_WEEKLY_BACKUP_RETENTION=12
+```
+
+Rules:
+
+* Never commit `.env.deploy`.
+* Never commit an SSH private key.
+* Never print passwords, private keys, database passwords, JWT secrets, or Tailscale authentication keys in logs.
+* Prefer the existing SSH agent.
+* Use `INVENTORY_SSH_KEY_PATH` only when explicitly configured.
+* Set secret-file permissions to `600`.
+* Test SSH access using non-interactive mode before deployment.
+* Do not repeatedly request an SSH password.
+* Do not place the Linux user’s password into scripts.
+* Use `sudo` only for required server bootstrap operations.
+* Detect whether passwordless sudo is available.
+* If the remote account cannot run required sudo commands, generate a single safe bootstrap command for the user instead of storing the sudo password.
+
+Test SSH using a command similar to:
+
+```bash
+ssh -o BatchMode=yes \
+    -p "$INVENTORY_SSH_PORT" \
+    "$INVENTORY_SSH_USER@$INVENTORY_SSH_HOST" \
+    "echo SSH_CONNECTION_OK"
+```
+
+Do not continue with remote modifications if the SSH test fails.
+
+---
+
+# 5. Supported Linux Server
+
+Primary supported server operating systems:
+
+* Ubuntu Server LTS
+* Debian stable
+
+During deployment:
+
+1. Detect the operating system.
+2. Detect CPU architecture.
+3. Check free disk space.
+4. Check available memory.
+5. Check system time and timezone.
+6. Check whether Docker is already installed.
+7. Check whether Docker Compose is available.
+8. Check whether Tailscale is installed.
+9. Check whether required ports are already in use.
+10. Check whether an existing installation is present.
+11. Back up an existing installation before changing it.
+
+Do not run untested distribution-specific package commands on an unsupported Linux distribution.
+
+If the distribution is unsupported, stop safely and provide the exact unsupported-system details.
+
+---
+
+# 6. Docker Compose Services
+
+Create these Docker Compose services:
+
+## `db`
+
+PostgreSQL database.
+
+Requirements:
+
+* Use a supported stable PostgreSQL image.
+* Use a persistent volume or bind mount.
+* Do not expose port `5432` publicly.
+* Add a health check.
+* Set timezone.
+* Use a strong generated password.
+* Use UTF-8.
+* Restart unless stopped.
+* Set appropriate resource limits where practical.
+
+## `api`
+
+FastAPI backend.
+
+Requirements:
+
+* Run as a non-root user.
+* Use Gunicorn with Uvicorn workers or another suitable production ASGI configuration.
+* Wait for PostgreSQL health.
+* Run database migrations during controlled deployment.
+* Mount image storage.
+* Mount export storage.
+* Mount backup staging storage where required.
+* Add a health endpoint.
+* Add structured logs.
+* Restart unless stopped.
+
+## `web`
+
+The web interface may be:
+
+* Built into a separate static container, or
+* Served directly by Caddy from the Flutter web build
+
+Prefer serving the compiled Flutter web application through Caddy.
+
+## `caddy`
+
+Requirements:
+
+* Serve Flutter web.
+* Reverse proxy `/api/*` to FastAPI.
+* Support WebSocket connections if later required.
+* Add security headers.
+* Add compression.
+* Add sensible file caching.
+* Do not cache authenticated API responses.
+* Do not expose internal services.
+* Provide HTTPS through Tailscale or a public domain.
+* Add a health check where practical.
+
+## `backup`
+
+Create either:
+
+* A lightweight scheduled backup container, or
+* A host cron/systemd timer that calls a versioned backup script
+
+The backup system must include PostgreSQL and component images.
+
+Do not add Redis, RabbitMQ, Kubernetes, Elasticsearch, or other unnecessary services.
+
+---
+
+# 7. Deployment Modes
+
+Support two deployment modes.
+
+## Mode A: Tailscale Private Deployment
+
+This is the recommended default.
+
+Requirements:
+
+* The Linux server joins the user’s Tailscale network.
+* Android and Windows devices connect through Tailscale.
+* The inventory application is not publicly exposed.
+* Do not require router port forwarding.
+* Use a stable Tailscale hostname.
+* Use HTTPS supported by the current Tailscale configuration.
+* Verify that the application can be opened through the Tailscale hostname.
+* Do not log or commit a reusable Tailscale authentication key.
+* Remove or expire temporary deployment keys where appropriate.
+
+The deployment script should:
+
+1. Detect whether Tailscale is installed.
+2. Install it using an official supported installation method if permitted.
+3. Check whether the server is already authenticated.
+4. Use `TAILSCALE_AUTHKEY` only if supplied securely.
+5. Configure the requested hostname.
+6. Determine the current private hostname or address.
+7. Configure private HTTPS access using supported current Tailscale commands.
+8. Verify connectivity locally.
+
+Do not replace an existing Tailscale configuration without confirmation.
+
+## Mode B: Public Domain Deployment
+
+Use this only when `INVENTORY_PUBLIC_DOMAIN` is configured.
+
+Requirements:
+
+* DNS must point to the Linux server.
+* Ports 80 and 443 must reach the server.
+* Caddy should obtain and renew HTTPS certificates.
+* Redirect HTTP to HTTPS.
+* Apply stricter login protection and rate limiting.
+* Do not expose PostgreSQL.
+* Do not expose internal Docker ports.
+* Validate the domain before deployment.
+
+Do not generate self-signed certificates for normal Android production use.
+
+---
+
+# 8. Server Directory Layout
+
+Use:
+
+```text
+/opt/tech-panda-inventory/
+├── current/
+├── releases/
+│   ├── 20260711_210000/
+│   └── ...
+├── shared/
+│   ├── .env
+│   ├── postgres/
+│   ├── media/
+│   │   ├── originals/
+│   │   ├── previews/
+│   │   └── thumbnails/
+│   ├── exports/
+│   ├── backups/
+│   └── logs/
+└── previous/
+```
+
+Requirements:
+
+* Keep persistent data in `shared`.
+* Never place persistent data inside a disposable release folder.
+* Keep at least the three most recent application releases.
+* Use a `current` symbolic link.
+* Preserve the previous working release for rollback.
+* Ensure correct ownership and permissions.
+* Do not make image or backup folders world-writable.
+
+---
+
+# 9. Authentication
+
+Create self-hosted authentication.
+
+Version 1 requirements:
+
+* One administrator account
+* Email and password login
+* Persistent authenticated sessions
+* Logout
+* Change password
+* Forgot-password workflow through an administrator recovery code or server CLI
+* Access-token refresh
+* Session revocation
+* Protection against brute-force login attempts
+* Login audit information
+* Optional future viewer/editor roles
+
+Do not require an external email provider for version 1.
+
+Password recovery can be performed using a server command such as:
+
+```bash
+docker compose exec api python -m app.cli reset-password user@example.com
+```
+
+Password requirements:
+
+* Minimum sensible length
+* Allow password managers
+* Do not unnecessarily restrict symbols
+* Store only Argon2 hashes
+* Never log passwords
+
+Use:
+
+* Short-lived access tokens
+* Rotating refresh tokens
+* Hashed refresh-token storage
+* Token revocation
+* Secure cookies for web
+* Secure storage for Android
+
+For Flutter Web:
+
+* Prefer secure, HTTP-only, SameSite cookies.
+* Add CSRF protection for state-changing requests.
+
+For Android:
+
+* Use bearer access tokens.
+* Store refresh tokens using secure device storage.
+* Do not store tokens in ordinary preferences.
+
+---
+
+# 10. User Roles
+
+Prepare these roles:
+
+* Owner
+* Editor
+* Viewer
+
+Version 1 may create only the Owner interface.
+
+Permissions:
+
+## Owner
+
+* Full inventory control
+* User management
+* Settings
+* Backup and restore
+* Transaction reversal
+* Permanent deletion where allowed
+
+## Editor
+
+* Add and edit components
+* Stock in and out
+* Manage projects
+* Cannot restore backups
+* Cannot delete owner
+* Cannot change server settings
+
+## Viewer
+
+* Read-only inventory and reports
+
+All API endpoints must enforce permissions on the server.
+
+Do not rely only on hiding buttons in Flutter.
+
+---
+
+# 11. Database Design
+
+Use PostgreSQL and SQLAlchemy models.
+
+Use UUID primary keys unless a sequential identifier is specifically useful.
+
+Use UTC timestamps in the database.
+
+Display dates using the user’s selected timezone.
+
+Create Alembic migrations for every schema change.
+
+## `users`
+
+Fields:
+
+* `id`
+* `name`
+* `email`
+* `normalized_email`
+* `password_hash`
+* `role`
+* `is_active`
+* `last_login_at`
+* `failed_login_count`
+* `locked_until`
+* `created_at`
+* `updated_at`
+
+## `refresh_tokens`
+
+Fields:
+
+* `id`
+* `user_id`
+* `token_hash`
+* `device_name`
+* `expires_at`
+* `revoked_at`
+* `created_at`
+* `last_used_at`
+
+## `workspaces`
+
+Create one default workspace but retain workspace support.
+
+Fields:
+
+* `id`
+* `name`
+* `default_currency`
+* `default_unit`
+* `allow_negative_stock`
+* `timezone`
+* `created_at`
+* `updated_at`
+
+## `categories`
+
+Fields:
+
+* `id`
+* `workspace_id`
+* `name`
+* `normalized_name`
+* `code_prefix`
+* `parent_category_id`
+* `description`
+* `icon_name`
+* `_name`
+* `code_prefix`
+  -display_order`
+* `is_active`
+* `created_at`
+* `updated_at`
+
+## `specification_definitions`
+
+Fields:
+
+* `id`
+* `workspace_id`
+* `category_id`
+* `field_key`
+* `display_label`
+* `data_type`
+* `unit`
+* `is_required`
+* `is_searchable`
+* `default_value`
+* `options_json`
+* `help_text`
+* `display_order`
+* `is_active`
+* `created_at`
+* `updated_at`
+
+## `components`
+
+Fields:
+
+* `id`
+* `workspace_id`
+* `inventory_code`
+* `name`
+* `normalized_name`
+* `category_id`
+* `subcategory_id`
+* `manufacturer`
+* `model_number`
+* `part_number`
+* `package_type`
+* `description`
+* `current_quantity`
+* `minimum_quantity`
+* `unit`
+* `quantity_precision`
+* `location_id`
+* `drawer`
+* `box`
+* `supplier_id`
+* `purchase_source`
+* `purchase_url`
+* `unit_cost_minor`
+* `currency`
+* `purchase_date`
+* `datasheet_url`
+* `notes`
+* `tags_json`
+* `specification_values_json`
+* `barcode`
+* `qr_code_value`
+* `is_favorite`
+* `is_archived`
+* `search_text`
+* `created_by`
+* `updated_by`
+* `created_at`
+* `updated_at`
+
+Use PostgreSQL `NUMERIC`, not floating point, for component quantities.
+
+Use integer minor units for money.
+
+Example:
+
+```text
+CNY 12.50 = 1250
+```
+
+## `component_images`
+
+Fields:
+
+* `id`
+* `component_id`
+* `original_filename`
+* `stored_filename`
+* `mime_type`
+* `file_size`
+* `width`
+* `height`
+* `original_path`
+* `preview_path`
+* `thumbnail_path`
+* `display_order`
+* `is_primary`
+* `created_at`
+* `created_by`
+
+## `locations`
+
+Fields:
+
+* `id`
+* `workspace_id`
+* `name`
+* `parent_location_id`
+* `cabinet`
+* `shelf`
+* `drawer`
+* `box`
+* `bin`
+* `description`
+* `qr_code_value`
+* `is_favorite`
+* `is_active`
+* `created_at`
+* `updated_at`
+
+## `suppliers`
+
+Fields:
+
+* `id`
+* `workspace_id`
+* `name`
+* `website`
+* `contact`
+* `notes`
+* `is_favorite`
+* `is_active`
+* `created_at`
+* `updated_at`
+
+## `projects`
+
+Fields:
+
+* `id`
+* `workspace_id`
+* `name`
+* `project_type`
+* `status`
+* `start_date`
+* `completion_date`
+* `youtube_video_title`
+* `youtube_video_url`
+* `description`
+* `notes`
+* `image_path`
+* `is_favorite`
+* `is_archived`
+* `created_by`
+* `created_at`
+* `updated_at`
+
+## `project_kits`
+
+Fields:
+
+* `id`
+* `workspace_id`
+* `name`
+* `description`
+* `is_favorite`
+* `created_at`
+* `updated_at`
+
+## `project_kit_lines`
+
+Fields:
+
+* `id`
+* `project_kit_id`
+* `component_id`
+* `quantity`
+* `unit`
+* `notes`
+
+## `inventory_transactions`
+
+Fields:
+
+* `id`
+* `workspace_id`
+* `transaction_code`
+* `transaction_type`
+* `status`
+* `project_id`
+* `supplier_id`
+* `reference_number`
+* `reason`
+* `notes`
+* `line_count`
+* `total_quantity`
+* `total_cost_minor`
+* `currency`
+* `idempotency_key`
+* `reverses_transaction_id`
+* `created_by`
+* `created_at`
+* `committed_at`
+
+Create a unique database constraint on:
+
+```text
+workspace_id + idempotency_key
+```
+
+## `inventory_movement_lines`
+
+Fields:
+
+* `id`
+* `transaction_id`
+* `component_id`
+* `component_name_snapshot`
+* `inventory_code_snapshot`
+* `quantity_change`
+* `quantity_before`
+* `quantity_after`
+* `unit`
+* `unit_cost_minor`
+* `total_cost_minor`
+* `location_id`
+* `project_id`
+* `reason`
+* `created_at`
+
+## `purchase_list_items`
+
+Fields:
+
+* `id`
+* `workspace_id`
+* `component_id`
+* `required_quantity`
+* `supplier_id`
+* `status`
+* `notes`
+* `created_at`
+* `updated_at`
+
+## `audit_logs`
+
+Fields:
+
+* `id`
+* `user_id`
+* `action`
+* `entity_type`
+* `entity_id`
+* `summary`
+* `ip_address`
+* `device_name`
+* `created_at`
+
+Do not store passwords, raw authentication tokens, or secrets in audit logs.
+
+---
+
+# 12. Database Indexes
+
+Create indexes for:
+
+* Inventory code
+* Component name
+* Normalized component name
+* Part number
+* Manufacturer
+* Model number
+* Category
+* Location
+* Barcode
+* QR value
+* Archived status
+* Favorite status
+* Current quantity
+* Transaction code
+* Transaction date
+* Project
+* Supplier
+* Transaction type
+* Idempotency key
+
+Enable and use PostgreSQL trigram search if appropriate.
+
+For 500–2,000 components, prioritize correctness and simple efficient queries rather than introducing an external search engine.
+
+---
+
+# 13. Inventory Transaction Rules
+
+Never update component stock directly from normal CRUD endpoints.
+
+All stock changes must go through a dedicated inventory service.
+
+Required operations:
+
+* Opening Stock
+* Stock In
+* Stock Out
+* Project Consumption
+* Return
+* Adjustment Increase
+* Adjustment Decrease
+* Damaged
+* Lost
+* Discarded
+* Transfer
+* Reversal
+
+Create a backend service with methods similar to:
+
+```python
+create_opening_stock()
+commit_stock_in()
+commit_stock_out()
+commit_project_consumption()
+commit_return()
+commit_adjustment()
+commit_damage()
+commit_loss()
+commit_transfer()
+reverse_transaction()
+```
+
+All multi-component transactions must:
+
+1. Require authentication.
+2. Check user permission.
+3. Validate the request.
+4. Reject an empty cart.
+5. Limit one transaction to 100 unique components.
+6. Merge duplicate component lines.
+7. Reject zero quantities.
+8. Reject invalid negative quantities.
+9. Begin one PostgreSQL transaction.
+10. Lock all affected component rows using `SELECT ... FOR UPDATE`.
+11. Lock rows in a consistent order to reduce deadlocks.
+12. Validate every component.
+13. Reject missing components.
+14. Reject archived components.
+15. Calculate quantity before and after.
+16. Check insufficient stock.
+17. Reject the complete transaction if any line fails.
+18. Create one transaction header.
+19. Create all movement lines.
+20. Update every affected component.
+21. Commit all changes together.
+22. Roll back all changes if any operation fails.
+23. Return the committed transaction summary.
+24. Record an audit event.
+
+No component quantity should change if one line in the cart fails.
+
+---
+
+# 14. Idempotency and Duplicate Protection
+
+Every stock transaction request must contain a UUID idempotency key generated by the Flutter client.
+
+The backend must:
+
+* Store the idempotency key.
+* Reject or safely return an existing transaction if the same key is submitted again.
+* Never change stock twice for one idempotency key.
+* Handle client retries safely.
+* Handle internet interruptions during submission safely.
+
+If the first request committed but the response was lost, retrying the same request must return the original committed transaction.
+
+---
+
+# 15. Inventory API
+
+Create versioned REST endpoints under:
+
+```text
+/api/v1/
+```
+
+Required endpoint groups:
+
+## Authentication
+
+```text
+POST   /api/v1/auth/login
+POST   /api/v1/auth/refresh
+POST   /api/v1/auth/logout
+GET    /api/v1/auth/me
+POST   /api/v1/auth/change-password
+GET    /api/v1/auth/sessions
+DELETE /api/v1/auth/sessions/{sessionId}
+```
+
+## Components
+
+```text
+GET    /api/v1/components
+POST   /api/v1/components
+GET    /api/v1/components/{id}
+PATCH  /api/v1/components/{id}
+POST   /api/v1/components/{id}/archive
+POST   /api/v1/components/{id}/restore
+GET    /api/v1/components/{id}/history
+GET    /api/v1/components/{id}/projects
+GET    /api/v1/components/search
+```
+
+Do not allow normal component update endpoints to change `current_quantity`.
+
+## Component Images
+
+```text
+POST   /api/v1/components/{id}/images
+GET    /api/v1/component-images/{imageId}
+GET    /api/v1/component-images/{imageId}/thumbnail
+GET    /api/v1/component-images/{imageId}/preview
+PATCH  /api/v1/components/{id}/images/{imageId}
+DELETE /api/v1/components/{id}/images/{imageId}
+```
+
+## Inventory
+
+```text
+POST   /api/v1/inventory/transactions
+GET    /api/v1/inventory/transactions
+GET    /api/v1/inventory/transactions/{id}
+POST   /api/v1/inventory/transactions/{id}/reverse
+POST   /api/v1/inventory/validate-cart
+GET    /api/v1/inventory/low-stock
+GET    /api/v1/inventory/out-of-stock
+```
+
+## Categories
+
+```text
+GET    /api/v1/categories
+POST   /api/v1/categories
+PATCH  /api/v1/categories/{id}
+GET    /api/v1/categories/{id}/specifications
+POST   /api/v1/categories/{id}/specifications
+PATCH  /api/v1/specifications/{id}
+```
+
+## Locations
+
+```text
+GET    /api/v1/locations
+POST   /api/v1/locations
+PATCH  /api/v1/locations/{id}
+GET    /api/v1/locations/{id}/components
+```
+
+## Suppliers
+
+```text
+GET    /api/v1/suppliers
+POST   /api/v1/suppliers
+PATCH  /api/v1/suppliers/{id}
+```
+
+## Projects
+
+```text
+GET    /api/v1/projects
+POST   /api/v1/projects
+GET    /api/v1/projects/{id}
+PATCH  /api/v1/projects/{id}
+GET    /api/v1/projects/{id}/components
+GET    /api/v1/projects/{id}/transactions
+POST   /api/v1/projects/{id}/complete
+```
+
+## Project Kits
+
+```text
+GET    /api/v1/project-kits
+POST   /api/v1/project-kits
+GET    /api/v1/project-kits/{id}
+PATCH  /api/v1/project-kits/{id}
+DELETE /api/v1/project-kits/{id}
+```
+
+## Reports and Export
+
+```text
+GET    /api/v1/reports/dashboard
+GET    /api/v1/reports/inventory.csv
+GET    /api/v1/reports/low-stock.csv
+GET    /api/v1/reports/transactions.csv
+GET    /api/v1/reports/project/{id}.csv
+GET    /api/v1/reports/project/{id}.pdf
+```
+
+## Backup
+
+```text
+POST   /api/v1/backups
+GET    /api/v1/backups
+GET    /api/v1/backups/{id}/download
+POST   /api/v1/backups/{id}/restore
+```
+
+Backup restore must require:
+
+* Owner role
+* Password confirmation
+* Explicit restore confirmation
+* A safety backup before restoration
+
+---
+
+# 16. Component Categories
+
+Create these default categories:
+
+* Resistors
+* Capacitors
+* Inductors
+* Diodes
+* Transistors
+* MOSFETs
+* Integrated Circuits
+* Microcontrollers
+* Development Boards
+* Power Supply Modules
+* DC Buck Converters
+* DC Boost Converters
+* AC-DC Modules
+* Sensors
+* Displays
+* Communication Modules
+* Relay Modules
+* Bare Relays
+* Switches
+* Magnetic Reed Switches
+* Connectors
+* Terminals
+* Wires and Cables
+* Motors
+* Fans and Blowers
+* Batteries
+* Battery Holders
+* PCB and Prototyping
+* SMD Components
+* Mechanical Parts
+* Fasteners
+* Tools
+* Consumables
+* Miscellaneous
+
+Allow the user to:
+
+* Add categories
+* Add subcategories
+* Rename categories
+* Change icons
+* Change code prefixes
+* Add technical fields
+* Reorder technical fields
+* Disable categories
+* Archive categories
+
+Do not hard-code the application so new component types require source-code changes.
+
+---
+
+# 17. Category-Specific Specifications
+
+Each category must define its own specification fields.
+
+Specification definitions must support:
+
+* Field name
+* Display label
+* Data type
+* Optional unit
+* Required status
+* Searchable status
+* Default value
+* Dropdown options
+* Help text
+* Display order
+* Active status
+
+Supported field types:
+
+* Text
+* Integer
+* Decimal
+* Boolean
+* Dropdown
+* Multi-select
+* Date
+* URL
+* Voltage
+* Current
+* Resistance
+* Capacitance
+* Inductance
+* Power
+* Frequency
+* Temperature
+* Length
+* Percentage
+
+Store component values in validated JSON backed by specification definitions.
+
+Do not create one database column for every possible electronics property.
+
+---
+
+# 18. Default Specification Templates
+
+Create editable default templates.
+
+## Resistors
+
+* Resistance
+* Resistance unit
+* Tolerance
+* Power rating
+* Technology
+* Package
+* Temperature coefficient
+* Maximum voltage
+* SMD or through-hole
+
+## Capacitors
+
+* Capacitance
+* Capacitance unit
+* Voltage rating
+* Capacitor type
+* Dielectric
+* Tolerance
+* Polarity
+* Package
+* ESR
+* Temperature rating
+
+## Diodes
+
+* Diode type
+* Maximum reverse voltage
+* Maximum forward current
+* Forward voltage
+* Recovery time
+* Package
+* SMD or through-hole
+
+## Transistors
+
+* Transistor type
+* Polarity
+* Maximum collector-emitter voltage
+* Maximum collector current
+* Power dissipation
+* Current gain
+* Package
+* Pin configuration
+
+## MOSFETs
+
+* Channel type
+* Maximum drain-source voltage
+* Maximum drain current
+* Gate threshold voltage
+* RDS on
+* Power dissipation
+* Logic-level status
+* Package
+* Pin configuration
+
+## Integrated Circuits
+
+* IC function
+* Supply voltage
+* Package
+* Pin count
+* Interface
+* Operating temperature
+* Manufacturer part number
+
+## Development Boards
+
+* Board model
+* Main controller
+* Input voltage
+* Logic voltage
+* USB connector
+* Flash size
+* PSRAM
+* Wi-Fi
+* Bluetooth
+* GPIO count
+
+## DC Buck Converters
+
+* Module model
+* Minimum input voltage
+* Maximum input voltage
+* Minimum output voltage
+* Maximum output voltage
+* Fixed or adjustable
+* Maximum output current
+* Recommended continuous current
+* Efficiency
+* Switching frequency
+* Enable pin
+* Display available
+* Dimensions
+
+## DC Boost Converters
+
+* Module model
+* Input voltage range
+* Output voltage range
+* Maximum input current
+* Maximum output current
+* Fixed or adjustable
+* Efficiency
+* Dimensions
+
+## Sensors
+
+* Sensor type
+* Measurement type
+* Supply voltage
+* Output type
+* Communication interface
+* Measurement range
+* Accuracy
+* Resolution
+* Operating temperature
+* Bare sensor or module
+
+## Magnetic Reed Switches
+
+* Contact form
+* Normally open or normally closed
+* Maximum switching voltage
+* Maximum switching current
+* Maximum switching power
+* Activation distance
+* Release distance
+* Contact resistance
+* Mounting type
+* Cable length
+* Glass or enclosed type
+
+## Relay Modules
+
+* Channel count
+* Relay coil voltage
+* Logic trigger voltage
+* Active high or active low
+* Contact voltage rating
+* Contact current rating
+* Optical isolation
+* Trigger current
+* Dimensions
+
+## Connectors
+
+* Connector family
+* Connector type
+* Pin count
+* Pitch
+* Male or female
+* Straight or right-angle
+* Through-hole or SMD
+* Current rating
+* Voltage rating
+
+## Wires and Cables
+
+* Wire type
+* Gauge
+* Cross-sectional area
+* Number of cores
+* Color
+* Length
+* Conductor material
+* Insulation
+* Voltage rating
+* Current rating
+
+---
+
+# 19. Component Pictures
+
+Pictures must be optional.
+
+Allow:
+
+* Android camera capture
+* Android gallery selection
+* Web file selection
+* Image rotation
+* Image cropping
+* Image replacement
+* Image deletion
+* Multiple component images
+* Primary image selection
+
+Limit the default to five images per component.
+
+The backend must:
+
+1. Validate MIME type.
+2. Validate actual image content.
+3. Limit file size.
+4. Generate a random stored filename.
+5. Prevent path traversal.
+6. Remove metadata where practical.
+7. Correct image orientation.
+8. Generate a thumbnail.
+9. Generate a preview.
+10. Optionally retain a compressed original.
+11. Store image metadata in PostgreSQL.
+12. Never store image binary data directly in PostgreSQL.
+13. Remove unused files safely.
+
+Suggested sizes:
+
+* Thumbnail: approximately 160 pixels
+* Preview: approximately 1,000–1,400 pixels
+* Original: compressed and limited to a configurable maximum
+
+Serve images only through authenticated API routes.
+
+Do not expose the media directory directly as an unauthenticated public folder.
+
+---
+
+# 20. Minimal Keyboard Input
+
+Reducing keyboard input is a major requirement.
+
+Provide:
+
+* Searchable dropdowns
+* Favorites
+* Recent components
+* Recent categories
+* Recent locations
+* Recent suppliers
+* Recent projects
+* Frequently used components
+* Frequently consumed components
+* Preset quantity buttons
+* Plus and minus buttons
+* Scan-to-add
+* Duplicate component
+* Copy specifications
+* Component templates
+* Project kits
+* Repeat previous transaction
+* Default dates
+* Automatic inventory codes
+* Remembered units
+* Remembered locations
+* Smart defaults by category
+* Multi-select
+* Autocomplete
+* Search suggestions
+* Category icons
+* Component pictures in selectors
+* Common reason presets
+
+Do not force the user to repeatedly type:
+
+* Units
+* Locations
+* Categories
+* Suppliers
+* Projects
+* Dates
+* Common transaction reasons
+* Repeated specifications
+
+---
+
+# 21. Multi-Component Stock Cart
+
+Stock In and Stock Out must use a cart-style interface.
+
+Each cart row should display:
+
+* Picture
+* Component name
+* Inventory code
+* Current quantity
+* Transaction quantity
+* Unit
+* Quantity after transaction
+* Location
+* Remove button
+
+Support adding components through:
+
+* Search
+* Recent items
+* Favorites
+* Category browsing
+* Multi-selection
+* QR scan
+* Barcode scan
+* Project kit
+* Previous transaction
+* Low-stock list
+
+Cart features:
+
+* Merge duplicate component selections.
+* Change quantity inline.
+* Remove individual lines.
+* Clear cart.
+* Save draft.
+* Restore draft.
+* Submit all items together.
+* Validate cart before submission.
+* Generate one idempotency key.
+* Show total component types.
+* Show total quantity.
+* Show estimated value.
+* Warn about insufficient stock.
+* Warn about low remaining stock.
+
+---
+
+# 22. Fast Stock-In
+
+Workflow:
+
+1. Open Stock In.
+2. Search or scan components.
+3. Add multiple components.
+4. Select supplier once.
+5. Add purchase reference once.
+6. Set quantities.
+7. Optionally set costs.
+8. Review.
+9. Submit one transaction.
+
+Quick quantity controls:
+
+* `+1`
+* `+5`
+* `+10`
+* `+25`
+* Custom
+
+Continuous scan mode:
+
+* Scan component.
+* Add default quantity.
+* Scan next component.
+* Re-scanning the same component increments the cart quantity.
+
+Show:
+
+```text
+8 component types
+47 total units being added
+Estimated cost: CNY 126.50
+```
+
+---
+
+# 23. Fast Stock-Out
+
+Workflow:
+
+1. Select a project once.
+2. Scan or select multiple components.
+3. Add them to the cart.
+4. Set quantities.
+5. Review remaining stock.
+6. Submit one transaction.
+
+Quick quantity controls:
+
+* `1`
+* `2`
+* `5`
+* `10`
+* All Available
+* Custom
+
+Show each line as:
+
+```text
+Available: 12 pieces
+Use: 3 pieces
+Remaining: 9 pieces
+```
+
+Immediately display:
+
+* Insufficient stock
+* Low-stock result
+* Out-of-stock result
+* Archived component warning
+
+Final validation must still happen on the server.
+
+---
+
+# 24. Offline Operation
+
+The Android and web application should remain useful when the Linux server or internet connection is unavailable.
+
+Offline capabilities:
+
+* View cached components
+* Search cached inventory
+* View cached categories
+* View cached locations
+* View cached projects
+* Prepare Stock In drafts
+* Prepare Stock Out drafts
+* Prepare Return drafts
+* Prepare physical-count drafts
+* Prepare component drafts
+* Queue image uploads
+
+Do not show an offline transaction as committed.
+
+Offline records must be marked:
+
+* Draft
+* Pending Upload
+* Pending Submission
+* Rejected
+* Synchronized
+
+When connectivity returns:
+
+1. Authenticate again if required.
+2. Refresh reference data.
+3. Submit pending drafts one at a time.
+4. Reuse the original idempotency key.
+5. Handle success.
+6. Handle insufficient-stock conflicts.
+7. Keep rejected drafts editable.
+8. Never discard drafts silently.
+9. Never submit the same transaction twice.
+
+Because this is self-hosted, do not attempt complex automatic bidirectional database replication.
+
+Use local caching plus explicit draft synchronization.
+
+---
+
+# 25. QR and Barcode Features
+
+Every component must have:
+
+* Stable internal QR value
+* Optional manufacturer barcode
+
+Support:
+
+* Scan a component QR code
+* Scan a manufacturer barcode
+* Scan a storage-location QR code
+* Generate internal QR labels
+* Print component labels
+* Print storage-bin labels
+* Print location labels
+* Continuous scan mode
+* USB barcode scanners that act like keyboards
+
+Component label options:
+
+* Component name
+* Inventory code
+* Part number
+* Storage location
+* QR code
+* Current quantity
+
+On Android:
+
+* Use the camera.
+* Request permission correctly.
+* Provide manual fallback.
+
+On Flutter Web:
+
+* Use the browser camera when supported.
+* Support keyboard-style USB scanners.
+* Keep a scan input ready when scan mode is active.
+
+---
+
+# 26. Flutter Interface
+
+Create a modern, professional, slightly futuristic Material 3 interface.
+
+It must not look like a basic Flutter example.
+
+Use:
+
+* Dark theme
+* Light theme
+* System theme
+* Rounded cards
+* Clear spacing
+* Modern icons
+* Readable typography
+* Status badges
+* Subtle transitions
+* Skeleton loaders
+* Helpful empty states
+* Responsive dialogs
+* Touch-friendly buttons
+* Keyboard-friendly desktop controls
+
+Avoid:
+
+* Excessive gradients
+* Excessive neon
+* Tiny text
+* Overcrowded forms
+* Decorative animations
+* Hidden essential actions
+* Long forms without sections
+
+Suggested dark palette:
+
+* Background: `#0B0F17`
+* Navigation: `#111827`
+* Card: `#172033`
+* Secondary surface: `#1E293B`
+* Primary accent: `#00C2FF`
+* Secondary accent: `#7C3AED`
+* Success: `#22C55E`
+* Warning: `#F59E0B`
+* Error: `#EF4444`
+* Primary text: `#F8FAFC`
+* Secondary text: `#94A3B8`
+* Border: `#2B3A55`
+
+---
+
+# 27. Responsive Navigation
+
+## Android Phone
+
+Use bottom navigation:
+
+* Home
+* Inventory
+* Scan
+* Projects
+* More
+
+Provide a prominent Scan button.
+
+Use:
+
+* Cards
+* Bottom sheets
+* Full-screen forms
+* Large touch controls
+* Floating quick-action button
+
+## Tablet and Desktop Web
+
+Use:
+
+* Collapsible sidebar
+* Top toolbar
+* Table and grid views
+* Multi-column forms
+* Wider cart
+* Side-by-side component details
+* Keyboard shortcuts
+
+Sidebar:
+
+* Dashboard
+* Components
+* Stock In
+* Stock Out
+* Projects
+* Transactions
+* Categories
+* Locations
+* Purchase List
+* Reports
+* Backup
+* Settings
+
+---
+
+# 28. Dashboard
+
+Display:
+
+* Total component types
+* Total stock quantity
+* Estimated inventory value
+* Low-stock count
+* Out-of-stock count
+* Active projects
+* Pending offline drafts
+* Recent transactions
+* Frequently used components
+* Favorite components
+* Stock by category
+* Recent project consumption
+
+Quick actions:
+
+* Scan Component
+* Stock In
+* Stock Out
+* Add Component
+* Create Project
+* Physical Count
+
+Dashboard cards should be clickable.
+
+---
+
+# 29. Component Form
+
+Use steps or grouped sections.
+
+## Identification
+
+* Name
+* Category
+* Subcategory
+* Part number
+* Manufacturer
+* Model
+* Package
+
+## Specifications
+
+Load fields dynamically from the category.
+
+## Inventory
+
+* Opening quantity
+* Unit
+* Minimum quantity
+* Location
+
+## Purchase Information
+
+* Supplier
+* Cost
+* Currency
+* Purchase source
+* Purchase URL
+* Purchase date
+
+## Documentation
+
+* Datasheet URL
+* Notes
+* Tags
+
+## Images
+
+* Camera
+* Gallery
+* File selection
+* Preview
+* Replace
+* Delete
+
+## Review
+
+Show a complete summary.
+
+Actions:
+
+* Save
+* Save and Add Another
+* Save and Stock In
+* Duplicate Existing
+* Scan Barcode
+* Take Picture
+
+Opening stock must create an inventory transaction.
+
+Do not set stock directly without history.
+
+---
+
+# 30. Duplicate Detection
+
+Check possible duplicates using:
+
+* Part number
+* Manufacturer and model
+* Name
+* Barcode
+* Important specification values
+
+Show possible matches with:
+
+* Picture
+* Name
+* Part number
+* Quantity
+* Location
+
+Actions:
+
+* Use Existing
+* Add Stock to Existing
+* Continue Creating New
+
+Do not automatically block similar but valid records.
+
+---
+
+# 31. Projects and YouTube Videos
+
+Project types:
+
+* YouTube Video
+* Prototype
+* PCB Project
+* Repair
+* Experiment
+* Client Work
+* Personal Project
+* Other
+
+Statuses:
+
+* Planned
+* In Progress
+* Waiting for Parts
+* Completed
+* Cancelled
+* Archived
+
+Project details should show:
+
+* Components consumed
+* Components returned
+* Net usage
+* Estimated cost
+* Transactions
+* YouTube title
+* YouTube URL
+* Notes
+
+Actions:
+
+* Consume Components
+* Return Components
+* Load Project Kit
+* Export Bill of Materials
+* Duplicate Project
+* Complete Project
+* Archive Project
+
+---
+
+# 32. Project Kits
+
+Allow reusable kits.
+
+Example:
+
+```text
+ESP32 Firebase Controller Kit
+
+ESP32 development board × 1
+DHT22 sensor × 1
+10K resistor × 1
+Jumper wires × 5
+PCB terminals × 2
+```
+
+Allow:
+
+* Save cart as kit
+* Load kit into cart
+* Change quantities
+* Remove unavailable components
+* Associate kit with project
+* Duplicate kit
+
+---
+
+# 33. Stock Return
+
+Workflow:
+
+1. Select project.
+2. View consumed components.
+3. Select multiple components.
+4. Enter return quantities.
+5. Submit one Return transaction.
+
+Do not edit the original consumption transaction.
+
+---
+
+# 34. Stock Adjustment and Physical Count
+
+Physical-count workflow:
+
+1. Select category or location.
+2. Display expected quantity.
+3. Enter or scan actual quantity.
+4. Show difference.
+5. Review adjustments.
+6. Commit together.
+
+Quick controls:
+
+* Same as Expected
+* Zero
+* `+1`
+* `-1`
+* Custom
+
+Adjustment reasons:
+
+* Physical count correction
+* Damaged
+* Lost
+* Data-entry correction
+* Other
+
+Every adjustment must create movement history.
+
+---
+
+# 35. Search
+
+Search through:
+
+* Name
+* Inventory code
+* Part number
+* Manufacturer
+* Model
+* Category
+* Tags
+* Location
+* Barcode
+* Specification values
+
+Search requirements:
+
+* Case-insensitive
+* Partial matching
+* Fast for 500–2,000 components
+* Debounced
+* Recent search suggestions
+* Exact code prioritization
+* Exact barcode prioritization
+* Cached offline search
+* Support common variants such as `1k`, `1 kΩ`, and `1000 ohm` where practical
+
+Do not query the server for every keyboard character without debouncing.
+
+---
+
+# 36. Low Stock and Purchase List
+
+Low stock:
+
+```text
+current quantity > 0
+and
+current quantity <= minimum quantity
+```
+
+Out of stock:
+
+```text
+current quantity <= 0
+```
+
+A minimum quantity of zero disables low-stock warning.
+
+Low-stock actions:
+
+* Add to Purchase List
+* Add to Stock-In Cart
+* Open Supplier Link
+* Export CSV
+
+Purchase list:
+
+* Required quantity
+* Supplier
+* Ordered status
+* Received status
+* Notes
+* Convert received items to Stock-In cart
+
+Do not build a full purchasing or accounting system.
+
+---
+
+# 37. Reports
+
+Create:
+
+* Complete inventory
+* Low-stock report
+* Out-of-stock report
+* Inventory by category
+* Inventory by location
+* Transaction history
+* Project component usage
+* Damaged and lost components
+* Inventory value estimate
+* Purchase list
+
+Export:
+
+* CSV
+* JSON
+* PDF where appropriate
+
+CSV files must:
+
+* Use UTF-8
+* Open correctly in Microsoft Excel
+* Include readable specification values
+
+---
+
+# 38. Backup System
+
+Backups must include:
+
+* PostgreSQL database
+* Component images
+* Workspace settings
+* Application version
+* Backup metadata
+
+Create:
+
+* Nightly database backup
+* Nightly media manifest
+* Weekly full backup archive
+* Manual backup button
+* Downloadable backup file
+* Restore workflow
+
+Suggested filenames:
+
+```text
+tech_panda_inventory_daily_2026-07-11_020000.sql.gz
+tech_panda_inventory_full_2026-07-11_020000.tar.gz
+```
+
+Retention:
+
+* 30 daily database backups
+* 12 weekly full backups
+
+Backup script requirements:
+
+1. Use `pg_dump`.
+2. Verify command success.
+3. Create checksum.
+4. Record backup metadata.
+5. Delete expired backups only after a new backup succeeds.
+6. Never delete all backups.
+7. Log backup status.
+8. Avoid printing database password.
+
+Support an optional secondary backup directory:
+
+```text
+INVENTORY_SECONDARY_BACKUP_DIR=
+```
+
+This can point to:
+
+* External USB disk
+* Mounted NAS
+* Another mounted filesystem
+
+Clearly document that backups stored only on the same Linux disk do not protect against disk failure.
+
+---
+
+# 39. Restore System
+
+Restore must:
+
+1. Require owner permission.
+2. Require password confirmation.
+3. Validate backup format.
+4. Validate checksum.
+5. Display backup date and version.
+6. Create a safety backup first.
+7. Stop write operations.
+8. Restore PostgreSQL.
+9. Restore images when included.
+10. Run required migrations.
+11. Restart services.
+12. Perform health checks.
+13. Roll back to the safety backup when restoration fails.
+14. Log the restoration.
+
+Do not overwrite current data silently.
+
+---
+
+# 40. Security
+
+Apply:
+
+* Private Tailscale access by default
+* HTTPS
+* Argon2 password hashing
+* Secure cookies
+* CSRF protection
+* JWT rotation
+* Login rate limiting
+* API rate limiting
+* Input validation
+* File validation
+* Maximum upload sizes
+* SQL injection protection through ORM and bound queries
+* Path-traversal protection
+* Restricted Docker networking
+* Non-root containers
+* Strong generated secrets
+* Secret-file permission protection
+* Security headers
+* Audit logs
+* Dependency scanning where practical
+
+Caddy headers should include suitable current values for:
+
+* Content Security Policy
+* X-Content-Type-Options
+* Referrer-Policy
+* Frame protection
+* Permissions-Policy
+* HSTS when HTTPS configuration is confirmed
+
+Do not apply an overly restrictive policy that breaks Flutter Web.
+
+Test the final policy.
+
+---
+
+# 41. Health and Monitoring
+
+Create:
+
+```text
+GET /api/v1/health/live
+GET /api/v1/health/ready
+```
+
+Readiness should verify:
+
+* API process
+* PostgreSQL connection
+* Migration status
+* Media directory access
+
+Add:
+
+* Docker health checks
+* Log rotation
+* Database connection-pool limits
+* Disk-space warnings
+* Backup-failure warnings
+* Application version endpoint
+
+Do not require an external monitoring service.
+
+Provide a server status page for the owner showing:
+
+* API status
+* Database status
+* Disk usage
+* Last backup
+* Application version
+* Server time
+* Pending drafts reported by current device
+
+Do not expose sensitive server data to non-owner roles.
+
+---
+
+# 42. Deployment Automation
+
+Create `scripts/deploy_remote.sh`.
+
+The script must:
+
+1. Load `.env.deploy`.
+2. Validate required values.
+3. Verify SSH access.
+4. Detect the remote operating system.
+5. Verify disk and memory.
+6. Install required packages if permitted.
+7. Install Docker and Compose if missing.
+8. Install or verify Tailscale when selected.
+9. Create the remote directory structure.
+10. Generate strong random production secrets.
+11. Preserve existing production secrets during updates.
+12. Upload a versioned release using `rsync`.
+13. Build the Flutter web release.
+14. Build backend images.
+15. Back up existing data.
+16. Run database migrations.
+17. Start Docker services.
+18. Create the initial administrator if no users exist.
+19. Perform API health checks.
+20. Perform web health checks.
+21. Verify login endpoint.
+22. Verify media directory.
+23. Verify backup script.
+24. Mark the release as current.
+25. Keep the previous release.
+26. Print the final private application URL.
+27. Print Android build location.
+28. Never print secrets.
+
+Do not delete an existing installation before the replacement is verified.
+
+---
+
+# 43. Rollback
+
+Create `deployment/scripts/rollback.sh`.
+
+Rollback should:
+
+1. Identify the previous release.
+2. Create a database safety backup.
+3. Stop the failed release.
+4. Restore the previous application release.
+5. Start services.
+6. Run health checks.
+7. Report the result.
+
+Database migrations must be designed to be backwards-compatible whenever practical.
+
+For destructive schema changes:
+
+* Require an explicit migration plan.
+* Create a verified backup.
+* Document that application rollback may also require database restoration.
+
+---
+
+# 44. Application Updates
+
+Create an update workflow:
+
+```bash
+./scripts/deploy_remote.sh
+```
+
+Updates must preserve:
+
+* PostgreSQL data
+* Images
+* Backups
+* Settings
+* Administrator account
+* Production secrets
+* Tailscale configuration
+
+Do not recreate the database or administrator on every update.
+
+---
+
+# 45. Development Environment
+
+Provide local development through Docker Compose.
+
+Required commands:
+
+```bash
+docker compose -f docker-compose.dev.yml up -d
+```
+
+Backend:
+
+```bash
+cd backend
+alembic upgrade head
+pytest
+```
+
+Flutter:
+
+```bash
+cd flutter_app
+flutter pub get
+dart run build_runner build --delete-conflicting-outputs
+flutter analyze
+flutter test
+flutter run -d chrome
+```
+
+Allow local API configuration such as:
+
+```text
+http://localhost:8000/api/v1
+```
+
+Production Android builds must use the private HTTPS server URL through `--dart-define`.
+
+---
+
+# 46. Testing
+
+## Backend Unit Tests
+
+Test:
+
+* Password hashing
+* Authentication
+* Role permission
+* Component validation
+* Specification validation
+* Inventory-code generation
+* Quantity precision
+* Money calculations
+* Low-stock rules
+* Search normalization
+* Image validation
+* Backup metadata
+* Idempotency logic
+
+## Inventory Integration Tests
+
+Test:
+
+* Opening stock
+* Multi-component stock in
+* Multi-component stock out
+* Atomic failure
+* Insufficient stock
+* Negative stock setting
+* Return
+* Adjustment
+* Damage
+* Loss
+* Reversal
+* Duplicate submission
+* Concurrent stock requests
+* Archived component rejection
+* Invalid quantity
+* Transaction history snapshots
+
+## API Tests
+
+Test:
+
+* Authentication required
+* Owner permissions
+* Viewer rejection
+* Validation responses
+* Pagination
+* Search
+* Image upload
+* Image download authorization
+* Export
+* Backup authorization
+
+## Flutter Tests
+
+Test:
+
+* Login
+* Dashboard
+* Component form
+* Dynamic specifications
+* Stock-In cart
+* Stock-Out cart
+* Quantity controls
+* Search
+* Offline drafts
+* Sync conflicts
+* Responsive navigation
+* Empty states
+* Error handling
+
+## Deployment Tests
+
+Test:
+
+* Fresh installation
+* Existing installation update
+* Failed health check
+* Rollback
+* Backup before update
+* Persistent data after restart
+* Container restart
+* Server reboot
+
+---
+
+# 47. Acceptance Tests
+
+## Android and Web Synchronization
+
+1. Add a component from Android.
+2. Open the web interface on Windows.
+3. Confirm the component appears.
+4. Consume the component from the web.
+5. Confirm Android shows the updated quantity.
+
+## Resistor
+
+Create:
+
+```text
+Name: 1K Resistor
+Category: Resistors
+Resistance: 1 kΩ
+Tolerance: 5%
+Power: 0.25 W
+Quantity: 100 pieces
+Minimum: 20 pieces
+Location: Component Cabinet / Drawer 1
+```
+
+## Capacitor
+
+Create:
+
+```text
+Name: 100uF 25V Electrolytic Capacitor
+Category: Capacitors
+Capacitance: 100 µF
+Voltage: 25 V
+Type: Electrolytic
+Polarity: Polarized
+Quantity: 30 pieces
+```
+
+## Buck Converter
+
+Create:
+
+```text
+Name: LM2596 Adjustable Buck Converter
+Category: DC Buck Converters
+Input: 4.5–40 V
+Output: 1.25–35 V
+Maximum current: 3 A
+Recommended current: 2 A
+Output type: Adjustable
+Quantity: 8 pieces
+```
+
+## Multiple Stock In
+
+Add in one transaction:
+
+* 1K resistor: 100
+* ESP32-S3 board: 10
+* DHT22 sensor: 6
+* LM2596 module: 8
+
+Confirm:
+
+* One transaction header
+* Four movement lines
+* All quantities updated
+* No partial update
+
+## Multiple Stock Out
+
+Project:
+
+```text
+ESP32 Firebase IoT Controller
+```
+
+Consume:
+
+* ESP32-S3 board: 1
+* DHT22: 1
+* 10K resistor: 1
+* Jumper wires: 5
+
+Confirm all quantities update together.
+
+## Atomic Failure
+
+Attempt:
+
+* ESP32 board: 1
+* DHT22: 100 when only 5 are available
+
+The entire transaction must fail.
+
+ESP32 stock must not change.
+
+## Duplicate Submission
+
+Submit the same request twice using the same idempotency key.
+
+Stock must change once.
+
+## Offline Draft
+
+1. Disconnect the device from the server.
+2. Create a Stock-Out cart.
+3. Save it.
+4. Restart the app.
+5. Confirm the draft remains.
+6. Reconnect.
+7. Submit.
+8. Confirm only one server transaction exists.
+
+## Images
+
+* Add component with image.
+* Add component without image.
+* Replace the first image.
+* Confirm thumbnails work.
+* Confirm unauthorized requests cannot download the image.
+
+## QR
+
+* Generate component label.
+* Scan from Android.
+* Open correct component.
+* Add to Stock-Out cart.
+
+## Low Stock
+
+Set minimum stock to 10.
+
+Reduce quantity to 8.
+
+Confirm low-stock status.
+
+## Backup
+
+1. Create backup.
+2. Add test data.
+3. Restore backup.
+4. Confirm previous data and images return.
+
+## Server Restart
+
+Restart the Linux computer.
+
+Confirm:
+
+* Docker starts automatically.
+* Database starts.
+* API starts.
+* Web interface starts.
+* Data remains intact.
+
+---
+
+# 48. Android Build
+
+Create:
+
+* Debug APK
+* Release APK
+* Android App Bundle where practical
+
+Use production server URL through:
+
+```bash
+flutter build apk \
+  --release \
+  --dart-define=API_BASE_URL=https://your-private-host/api/v1
+```
+
+Do not hard-code development URLs in production.
+
+Document Android installation.
+
+Ensure Android trusts the production HTTPS certificate.
+
+Do not enable cleartext HTTP in production.
+
+---
+
+# 49. Flutter Web Build
+
+Build:
+
+```bash
+flutter build web \
+  --release \
+  --dart-define=API_BASE_URL=/api/v1
+```
+
+Requirements:
+
+* Browser refresh must preserve routes.
+* Direct routes must load correctly.
+* Authentication must persist safely.
+* Caddy must fall back to `index.html` for Flutter routes.
+* Static files should use appropriate caching.
+* The main HTML file should not be cached so aggressively that updates fail to appear.
+* Display application version in Settings.
+
+---
+
+# 50. Documentation
+
+Create:
+
+## `README.md`
+
+Include:
+
+* Architecture
+* Requirements
+* Local development
+* SSH deployment
+* Tailscale setup
+* Public-domain alternative
+* Environment variables
+* Database migrations
+* Administrator creation
+* Android build
+* Web build
+* Backups
+* Restore
+* Updates
+* Rollback
+* Troubleshooting
+
+## `docs/user_guide.md`
+
+Include:
+
+* Adding components
+* Stock In
+* Stock Out
+* Returns
+* Projects
+* Project kits
+* QR labels
+* Physical counts
+* Low-stock management
+* Backup download
+
+## `docs/deployment.md`
+
+Include:
+
+* Linux preparation
+* SSH key requirements
+* Docker installation
+* Tailscale configuration
+* Deployment command
+* Health checks
+* Updating
+* Rollback
+
+---
+
+# 51. Scope Restrictions
+
+Do not add:
+
+* Firebase
+* Cloud database dependencies
+* Customer management
+* Sales invoices
+* Full accounting
+* Online store
+* Public product catalog
+* Subscription billing
+* AI image recognition
+* Multi-warehouse enterprise logistics
+* Kubernetes
+* Microservice complexity
+* External message queues
+* External search services
+
+Keep the system reliable and maintainable for one serious hobbyist and YouTube creator.
+
+---
+
+# 52. Required Codex Work Process
+
+Follow this order:
+
+1. Inspect the existing working directory.
+2. Verify Flutter, Python, Docker, and SSH tools.
+3. Create the repository structure.
+4. Build the PostgreSQL schema.
+5. Create Alembic migrations.
+6. Build authentication.
+7. Build component and category APIs.
+8. Build image processing.
+9. Build atomic inventory transactions.
+10. Build projects and project kits.
+11. Build reports and exports.
+12. Build backup and restore.
+13. Build Flutter authentication.
+14. Build responsive navigation.
+15. Build dashboard.
+16. Build component management.
+17. Build dynamic specifications.
+18. Build Stock-In cart.
+19. Build Stock-Out cart.
+20. Build offline caching and drafts.
+21. Build QR and barcode features.
+22. Add tests.
+23. Run backend tests.
+24. Run Flutter tests.
+25. Run static analysis.
+26. Run local Docker environment.
+27. Perform local acceptance tests.
+28. Build Flutter Web.
+29. Build Android APK.
+30. Validate SSH deployment variables.
+31. Connect to the Linux server.
+32. Inspect the server safely.
+33. Back up any existing installation.
+34. Bootstrap the server if necessary.
+35. Deploy the new release.
+36. Run migrations.
+37. Create the administrator.
+38. Start services.
+39. Run remote health checks.
+40. Verify the private HTTPS URL.
+41. Verify backups.
+42. Report final results.
+
+Do not claim deployment succeeded unless the remote health checks passed.
+
+---
+
+# 53. Final Report
+
+After implementation and deployment, provide:
+
+* Features completed
+* Repository structure
+* Backend architecture
+* Database schema summary
+* API endpoint summary
+* Authentication method
+* Offline strategy
+* Backup strategy
+* Security measures
+* Test results
+* Linux server operating system
+* Docker service status
+* Database migration version
+* Web application URL
+* Android APK location
+* Backup location
+* Deployment command
+* Update command
+* Rollback command
+* Administrator creation status
+* Known limitations
+* Any step that could not be completed
+
+Never display:
+
+* Administrator password
+* PostgreSQL password
+* JWT secret
+* SSH key
+* Tailscale authentication key
+* Other production secrets
+
+Do not claim a feature was completed unless it was implemented and tested.

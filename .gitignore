@@ -1,0 +1,62 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+!.env.deploy.example
+*.pem
+*.key
+deployment-secrets/
+
+# Python, Flutter, Android and Windows build output
+**/.venv/
+**/env/
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.dart_tool/
+**/build/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.packages
+**/.gradle/
+**/local.properties
+**/android/.cxx/
+**/windows/flutter/ephemeral/
+
+# PlatformIO and device captures
+**/.pio/
+**/.sconsign*
+**/captures/
+**/logs/
+
+# Local data and generated archives
+local_data/
+backend/dev_inventory.db
+**/*.sqlite3
+**/*.db
+**/backups/
+**/exports/
+*.tar.gz
+*.rar
+*.zip
+releases/
+
+# IDE and OS files
+.agents/
+.idea/
+.vscode/
+**/.git/
+*.iml
+Thumbs.db
+.DS_Store
+
+# Generated hosted web bundle and old installer artifacts
+backend/static_web/
+deployment/windows/*.exe
+deployment/windows/*.cab
+*.log
+*_live.png
+
+# Generated wake-word assets and third-party model repositories
+TechPandaWakeWord/microWakeWord/
+TechPandaWakeWord/generated_samples/

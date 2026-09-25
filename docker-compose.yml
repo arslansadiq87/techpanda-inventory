@@ -1,0 +1,68 @@
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: techpanda_api
+    restart: unless-stopped
+    volumes:
+      - api_data:/app/data
+      - api_media:/app/media
+      - ./backend/static_web:/app/static_web
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-sqlite:////app/data/inventory.db}
+      - MEDIA_ROOT=/app/media
+      - BACKUP_ROOT=/app/data/backups
+      - EXPORTS_ROOT=/app/data/exports
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set in .env}
+      - ADMIN_NAME=${ADMIN_NAME:-admin}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD must be set in .env}
+      - VOICE_ASSISTANT_API_KEY=${VOICE_ASSISTANT_API_KEY:-}
+      - ENVIRONMENT=production
+    ports:
+      - "8000:8000"
+    networks:
+      - internal
+
+  # Enable PostgreSQL for production/concurrent users by setting DATABASE_URL
+  # in .env to the connection string below. SQLite remains the local default.
+  postgres:
+    profiles: ["postgres"]
+    image: postgres:16-alpine
+    container_name: techpanda_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-techpanda}
+      POSTGRES_USER: ${POSTGRES_USER:-techpanda}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set when using PostgreSQL}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-techpanda} -d ${POSTGRES_DB:-techpanda}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - internal
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: techpanda_tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:?CLOUDFLARE_TUNNEL_TOKEN must be set in .env}
+    env_file:
+      - .env
+    depends_on:
+      - api
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  api_data:
+  api_media:
+  postgres_data:
