@@ -38,6 +38,45 @@ flutter test
 flutter build web --release --dart-define=API_BASE_URL=http://127.0.0.1:8000/api/v1
 ```
 
+## Windows Setup and Deployment
+
+### Run the Flutter application on Windows
+
+Install Git, Flutter stable, and (for Android builds) Android Studio with the Android SDK. Then clone and run the project from PowerShell:
+
+```powershell
+git clone -b main https://github.com/arslansadiq87/techpanda-inventory.git
+cd techpanda-inventory\flutter_app
+flutter doctor
+flutter pub get
+flutter run -d windows
+```
+
+Build the Windows release bundle:
+
+```powershell
+flutter build windows --release
+```
+
+The bundle is created at `flutter_app\build\windows\x64\runner\Release\`. To build an Android APK, run `flutter build apk --release` after configuring the Android SDK.
+
+### Deploy the backend to a Linux server from Windows
+
+From the repository root, install Python 3.12+ and Paramiko, then run the included remote deployer:
+
+```powershell
+py -3.12 -m pip install paramiko
+py -3.12 deploy_remote.py
+```
+
+You can also double-click `deploy_to_linux.bat` or run:
+
+```powershell
+.\deploy_to_linux.ps1
+```
+
+The helper asks for the Linux server address, SSH credentials, Cloudflare Tunnel Token, and initial application admin password. It uploads the backend and web build, creates the server environment file, and starts Docker Compose. Keep all passwords and tokens out of command history and source control.
+
 ## Linux Server Deployment (Docker + Cloudflare Tunnels)
 
 Deploy the backend to any Ubuntu/Debian Linux VPS or private server with persistent SQLite storage, automatic migrations, and Cloudflare Tunnel for secure HTTPS external access.
