@@ -6,6 +6,10 @@
 
 <p align="center">Electronics component inventory management for TechPanda.</p>
 
+<p align="center">
+  <a href="https://www.youtube.com/@TechPanda-4k">Visit the TechPanda YouTube Channel</a>
+</p>
+
 Local-only electronics inventory for components, modules, boards, tools, consumables, projects, stock movement, images, reports, and backups.
 
 ## Stack
