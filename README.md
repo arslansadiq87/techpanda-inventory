@@ -1,4 +1,10 @@
-# Tech Panda Components Inventory
+<p align="center">
+  <img src="techpanda.png" alt="TechPanda logo" width="180">
+</p>
+
+<h1 align="center">Tech Panda Components Inventory</h1>
+
+<p align="center">Electronics component inventory management for TechPanda.</p>
 
 Local-only electronics inventory for components, modules, boards, tools, consumables, projects, stock movement, images, reports, and backups.
 
