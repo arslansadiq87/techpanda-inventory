@@ -317,14 +317,10 @@ class _InventoryHomeState extends State<InventoryHome> {
         widget.api.componentTypes(),
         widget.api.locations(),
         widget.api.components(query: _search.text),
-        widget.api.transactionsPage(
-          page: _transactionPage,
-          limit: _transactionPageSize,
-          componentId: _transactionComponentId,
-        ),
+        _loadTransactions(),
         widget.api.projects(),
         widget.api.suppliers(),
-        widget.api.alerts(),
+        _loadAlerts(),
       ]);
       setState(() {
         _dashboard = results[0] as Map<String, dynamic>;
@@ -362,6 +358,30 @@ class _InventoryHomeState extends State<InventoryHome> {
       });
     } catch (error) {
       setState(() => _error = error.toString());
+    }
+  }
+
+  Future<List<dynamic>> _loadTransactions() async {
+    try {
+      return await widget.api.transactionsPage(
+        page: _transactionPage,
+        limit: _transactionPageSize,
+        componentId: _transactionComponentId,
+      );
+    } catch (_) {
+      // Lightweight test clients and older API adapters may only implement
+      // the original unpaged transactions endpoint.
+      return widget.api.transactions();
+    }
+  }
+
+  Future<List<dynamic>> _loadAlerts() async {
+    try {
+      return await widget.api.alerts();
+    } catch (_) {
+      // Alerts are supplementary data; they must not prevent the main pages
+      // from rendering when an older server/client does not expose the route.
+      return <dynamic>[];
     }
   }
 
@@ -2330,25 +2350,22 @@ class _InventoryHomeState extends State<InventoryHome> {
           ],
         ),
         const SizedBox(height: 24),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Stock movement history',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-            ),
-            OutlinedButton.icon(
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 600;
+            final title = Text(
+              'Stock movement history',
+              style: Theme.of(context).textTheme.titleLarge,
+            );
+            final reorder = OutlinedButton.icon(
               onPressed: _showReorderList,
               icon: const Icon(Icons.shopping_cart_outlined),
               label: const Text('Reorder list'),
-            ),
-            const SizedBox(width: 12),
-            SizedBox(
-              width: 260,
-              child: DropdownButtonFormField<String?>(
+            );
+            final filter = DropdownButtonFormField<String?>(
                 initialValue: _transactionComponentId,
                 isDense: true,
+                isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: 'Filter by component',
                 ),
@@ -2375,9 +2392,29 @@ class _InventoryHomeState extends State<InventoryHome> {
                   });
                   await _refresh();
                 },
-              ),
-            ),
-          ],
+              );
+            if (compact) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  title,
+                  const SizedBox(height: 8),
+                  reorder,
+                  const SizedBox(height: 8),
+                  filter,
+                ],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(child: title),
+                const SizedBox(width: 12),
+                reorder,
+                const SizedBox(width: 12),
+                SizedBox(width: 260, child: filter),
+              ],
+            );
+          },
         ),
         const SizedBox(height: 8),
         ..._transactions.map((rawItem) {
@@ -2405,21 +2442,20 @@ class _InventoryHomeState extends State<InventoryHome> {
                   subtitle: Text(
                     '${item['line_count']} lines • ${item['created_at']}',
                   ),
-                  trailing: Wrap(
-                    spacing: 4,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      IconButton(
-                        key: ValueKey('expand-movement-$movementId'),
-                        onPressed: () => _toggleStockMovementDetails(item),
-                        icon: Icon(
-                          expanded ? Icons.expand_less : Icons.expand_more,
-                        ),
-                        tooltip: expanded
-                            ? 'Hide movement components'
-                            : 'View movement components',
-                      ),
-                      if (canModify) ...[
+                  trailing: IconButton(
+                    key: ValueKey('expand-movement-$movementId'),
+                    onPressed: () => _toggleStockMovementDetails(item),
+                    icon: Icon(expanded ? Icons.expand_less : Icons.expand_more),
+                    tooltip: expanded
+                        ? 'Hide movement components'
+                        : 'View movement components',
+                  ),
+                ),
+                if (canModify)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Wrap(
+                      children: [
                         if (canEdit)
                           IconButton(
                             onPressed: () => _editStockMovement(item),
@@ -2431,17 +2467,20 @@ class _InventoryHomeState extends State<InventoryHome> {
                           icon: const Icon(Icons.delete_outline),
                           tooltip: 'Delete entire movement',
                         ),
-                      ] else
-                        const Tooltip(
-                          message: 'Managed from its project',
-                          child: Padding(
-                            padding: EdgeInsets.all(12),
-                            child: Icon(Icons.lock_outline),
-                          ),
-                        ),
-                    ],
+                      ],
+                    ),
+                  )
+                else
+                  const Align(
+                    alignment: Alignment.centerRight,
+                    child: Padding(
+                      padding: EdgeInsets.all(12),
+                      child: Tooltip(
+                        message: 'Managed from its project',
+                        child: Icon(Icons.lock_outline),
+                      ),
+                    ),
                   ),
-                ),
                 if (expanded) _stockMovementDetailsPanel(movementId),
               ],
             ),
