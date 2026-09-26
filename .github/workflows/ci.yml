@@ -40,8 +40,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: platformio/platformio-action@v2
+      - uses: actions/setup-python@v5
         with:
-          project-dir: esp32_voice_assistant
+          python-version: '3.12'
+      - name: Install PlatformIO
+        run: python -m pip install --upgrade platformio
       - run: pio run
         working-directory: esp32_voice_assistant
