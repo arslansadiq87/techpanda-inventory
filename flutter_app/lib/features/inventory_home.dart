@@ -2237,8 +2237,9 @@ class _InventoryHomeState extends State<InventoryHome> {
         ),
       );
     } catch (error) {
-      if (mounted)
+      if (mounted) {
         setState(() => _error = 'Unable to load reorder list: $error');
+      }
     }
   }
 
