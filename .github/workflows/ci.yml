@@ -40,7 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: platformio/action@v2
+      - uses: platformio/platformio-action@v2
         with:
           project-dir: esp32_voice_assistant
       - run: pio run
