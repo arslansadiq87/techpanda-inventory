@@ -39,13 +39,12 @@ else
 fi
 
 # ── 3. Cloudflare Tunnel Token & Secrets ────────────────────────────────────────
-if [[ -f "$SCRIPT_DIR/.env" ]] && grep -Eq "^CLOUDFLARE_TUNNEL_TOKEN=.+" "$SCRIPT_DIR/.env" && grep -Eq "^JWT_SECRET=.+" "$SCRIPT_DIR/.env" && grep -Eq "^ADMIN_PASSWORD=.+" "$SCRIPT_DIR/.env"; then
+if [[ -f "$SCRIPT_DIR/.env" ]] && grep -Eq "^JWT_SECRET=.+" "$SCRIPT_DIR/.env" && grep -Eq "^ADMIN_PASSWORD=.+" "$SCRIPT_DIR/.env"; then
   echo "[✓] .env already contains CLOUDFLARE_TUNNEL_TOKEN — skipping prompt."
 else
   echo ""
-  echo "Please paste your Cloudflare Tunnel Token."
-  echo "  (Create one at https://one.dash.cloudflare.com → Networks → Tunnels)"
-  read -rsp "Tunnel Token: " CF_TOKEN
+  echo "Cloudflare Tunnel is optional. Leave the token empty for LAN-only deployment."
+  read -rsp "Cloudflare Tunnel Token (optional): " CF_TOKEN
   echo ""
   read -rsp "Initial application admin password: " ADMIN_PASSWORD
   echo ""
@@ -63,6 +62,14 @@ EOF
   echo "[✓] .env written with tunnel token and generated JWT secret."
 fi
 
+COMPOSE_ARGS=""
+if grep -Eq "^CLOUDFLARE_TUNNEL_TOKEN=.+" "$SCRIPT_DIR/.env"; then
+  COMPOSE_ARGS="--profile cloudflare"
+  echo "[✓] Cloudflare Tunnel enabled."
+else
+  echo "[✓] LAN-only mode enabled; Cloudflare Tunnel will not start."
+fi
+
 # ── 4. Build + Start ───────────────────────────────────────────────────────────
 DOCKER_CMD="docker"
 if ! docker info &>/dev/null 2>&1; then
@@ -72,7 +79,7 @@ fi
 
 echo "[+] Running: $DOCKER_CMD compose up -d --build"
 cd "$SCRIPT_DIR"
-$DOCKER_CMD compose up -d --build
+$DOCKER_CMD compose $COMPOSE_ARGS up -d --build
 
 LOCAL_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
 

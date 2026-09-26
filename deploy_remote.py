@@ -164,9 +164,6 @@ def main():
         dup_idx = cf_token.find("eyJh", 4)
         if dup_idx != -1:
             cf_token = cf_token[:dup_idx]
-    if not cf_token:
-        print("[!] A Cloudflare Tunnel Token is required for the Docker deployment. Pass --token or configure it in .env.")
-        sys.exit(1)
 
     print(f"\n[+] Connecting to {username}@{host}:{port}...")
     ssh = paramiko.SSHClient()

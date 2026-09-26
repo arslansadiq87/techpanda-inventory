@@ -85,7 +85,7 @@ You can also double-click `deploy_to_linux.bat` or run:
 .\deploy_to_linux.ps1
 ```
 
-The helper asks for the Linux server address, SSH credentials, Cloudflare Tunnel Token, and initial application admin password. It uploads the backend and web build, creates the server environment file, and starts Docker Compose. Keep all passwords and tokens out of command history and source control.
+The helper asks for the Linux server address, SSH credentials, an optional Cloudflare Tunnel Token, and the initial application admin password. Leave the token empty for LAN-only access; provide it to enable public HTTPS through Cloudflare. It uploads the backend and web build, creates the server environment file, and starts Docker Compose. Keep all passwords and tokens out of command history and source control.
 
 ## Linux Server Deployment (Docker + Cloudflare Tunnels)
 
@@ -123,7 +123,7 @@ On a fresh Ubuntu/Debian server, run this single command:
 git clone -b main https://github.com/arslansadiq87/techpanda-inventory.git ~/techpanda_inventory && cd ~/techpanda_inventory && chmod +x deploy.sh && ./deploy.sh
 ```
 
-The script fetches the complete repository, installs Docker and Docker Compose if needed, asks for the Cloudflare Tunnel Token and initial application admin password, generates the JWT secret, builds the containers, runs migrations, and starts the application.
+The script fetches the complete repository, installs Docker and Docker Compose if needed, asks for the optional Cloudflare Tunnel Token and initial application admin password, generates the JWT secret, builds the containers, runs migrations, and starts the application.
 
 For a later update on the same server:
 

@@ -29,7 +29,7 @@ flutter run -d chrome
 
 For the API, use Python 3.12+, create a virtual environment, install `backend/requirements.txt`, and follow `docs/deployment.md`. Docker users can run `docker compose up --build` from this repository.
 
-Never commit `.env`; production secrets belong in server environment variables or a secret manager. Docker Compose refuses to start when `JWT_SECRET`, `ADMIN_PASSWORD`, or the tunnel token is missing.
+Never commit `.env`; production secrets belong in server environment variables or a secret manager. `JWT_SECRET` and `ADMIN_PASSWORD` are required; `CLOUDFLARE_TUNNEL_TOKEN` is optional and enables the Cloudflare profile when provided.
 
 ### ESP32 voice assistant
 
