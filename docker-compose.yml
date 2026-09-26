@@ -35,7 +35,9 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-techpanda}
       POSTGRES_USER: ${POSTGRES_USER:-techpanda}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set when using PostgreSQL}
+      # Set POSTGRES_PASSWORD before enabling the postgres profile.
+      # The empty default keeps the optional profile from blocking SQLite-only deployments.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

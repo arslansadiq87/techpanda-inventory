@@ -31,6 +31,8 @@ For the API, use Python 3.12+, create a virtual environment, install `backend/re
 
 Never commit `.env`; production secrets belong in server environment variables or a secret manager. `JWT_SECRET` and `ADMIN_PASSWORD` are required; `CLOUDFLARE_TUNNEL_TOKEN` is optional and enables the Cloudflare profile when provided.
 
+The default deployment uses SQLite. If the PostgreSQL profile is enabled, set `POSTGRES_PASSWORD` explicitly in the server-only `.env` first.
+
 ### ESP32 voice assistant
 
 Install PlatformIO and connect an XIAO ESP32S3:
