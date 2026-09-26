@@ -376,7 +376,6 @@ def test_project_components_consume_edit_and_return_inventory() -> None:
         project = test_client.post(
             "/api/v1/projects",
             headers=headers,
-            json={"name": "Inventory consuming project"},
             json={"name": "Inventory consuming project", "status": "In Progress"},
         ).json()
         path = f"/api/v1/projects/{project['id']}/components/{component['id']}"
@@ -459,7 +458,6 @@ def test_project_component_insufficient_stock_keeps_previous_quantity() -> None:
         project = test_client.post(
             "/api/v1/projects",
             headers=headers,
-            json={"name": "Limited stock project"},
             json={"name": "Limited stock project", "status": "In Progress"},
         ).json()
         path = f"/api/v1/projects/{project['id']}/components/{component['id']}"
@@ -504,7 +502,6 @@ def test_batch_project_component_save_is_atomic_and_reconciles_all_lines() -> No
         project = test_client.post(
             "/api/v1/projects",
             headers=headers,
-            json={"name": "Batch component project"},
             json={"name": "Batch component project", "status": "In Progress"},
         ).json()
         path = f"/api/v1/projects/{project['id']}/components"
@@ -1539,7 +1536,5 @@ def test_project_status_conditional_stock_sorting_and_costing() -> None:
         assert del_res.status_code == 204
         remaining = test_client.get("/api/v1/projects", headers=headers).json()
         assert not any(p["id"] == p_id for p in remaining)
-
-
 
 
