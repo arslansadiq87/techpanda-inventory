@@ -40,7 +40,7 @@ fi
 
 # ── 3. Cloudflare Tunnel Token & Secrets ────────────────────────────────────────
 if [[ -f "$SCRIPT_DIR/.env" ]] && grep -Eq "^JWT_SECRET=.+" "$SCRIPT_DIR/.env" && grep -Eq "^ADMIN_PASSWORD=.+" "$SCRIPT_DIR/.env"; then
-  echo "[✓] .env already contains CLOUDFLARE_TUNNEL_TOKEN — skipping prompt."
+  echo "[✓] Existing application secrets found in .env — preserving them."
 else
   echo ""
   echo "Cloudflare Tunnel is optional. Leave the token empty for LAN-only deployment."
@@ -79,17 +79,39 @@ fi
 
 echo "[+] Running: $DOCKER_CMD compose up -d --build"
 cd "$SCRIPT_DIR"
+# Avoid taking a port already used by another application on a shared server.
+# APP_PORT may be set explicitly in .env; otherwise choose 8000 or the first
+# available port in the 8001-8099 range.
+if ! grep -Eq '^APP_PORT=[0-9]+$' .env; then
+  APP_PORT=8000
+  if command -v ss >/dev/null 2>&1 && ss -ltn "sport = :${APP_PORT}" | grep -q LISTEN; then
+    for candidate in $(seq 8001 8099); do
+      if ! ss -ltn "sport = :${candidate}" | grep -q LISTEN; then
+        APP_PORT="$candidate"
+        break
+      fi
+    done
+    echo "[!] Port 8000 is already in use; selected APP_PORT=${APP_PORT}."
+    printf '\nAPP_PORT=%s\n' "$APP_PORT" >> .env
+  fi
+fi
+# Validate the exact Compose file being deployed before building anything. This
+# catches stale/partial releases and reports the real missing setting early.
+$DOCKER_CMD compose config --quiet
 $DOCKER_CMD compose $COMPOSE_ARGS up -d --build
 
 LOCAL_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
+DEPLOY_PORT=$(grep -E '^APP_PORT=[0-9]+$' .env 2>/dev/null | tail -n 1 | cut -d= -f2)
+DEPLOY_PORT=${DEPLOY_PORT:-8000}
 
 echo ""
 echo "========================================================================"
 echo "  Deployment complete!"
 echo ""
+echo "  Host port used: ${DEPLOY_PORT}"
 echo "  1. Local Network Access (LAN / ESP32):"
-echo "     * Web App: http://${LOCAL_IP}:8000/"
-echo "     * API:     http://${LOCAL_IP}:8000/api/v1"
+echo "     * Web App: http://${LOCAL_IP}:${DEPLOY_PORT}/"
+echo "     * API:     http://${LOCAL_IP}:${DEPLOY_PORT}/api/v1"
 echo ""
 echo "  2. Cloudflare Zero Trust Tunnel Configuration:"
 echo "     In CF Dash -> Tunnels -> Public Hostname:"

@@ -217,6 +217,12 @@ def main():
         f"JWT_SECRET={jwt_secret}\n"
         "ADMIN_NAME=admin\n"
         f"ADMIN_PASSWORD={admin_password}\n"
+        # PostgreSQL is an opt-in Compose profile. Keep the variable present
+        # and empty so older/newer Compose files cannot fail interpolation
+        # during the default SQLite deployment.
+        "POSTGRES_DB=techpanda\n"
+        "POSTGRES_USER=techpanda\n"
+        "POSTGRES_PASSWORD=\n"
         + (f"VOICE_ASSISTANT_API_KEY={voice_key}\n" if voice_key else "")
     )
     print(f"[+] Writing remote {remote_env}...")

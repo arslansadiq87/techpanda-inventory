@@ -3,7 +3,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: techpanda_api
     restart: unless-stopped
     volumes:
       - api_data:/app/data
@@ -21,7 +20,7 @@ services:
       - VOICE_ASSISTANT_API_KEY=${VOICE_ASSISTANT_API_KEY:-}
       - ENVIRONMENT=production
     ports:
-      - "8000:8000"
+      - "${APP_PORT:-8000}:8000"
     networks:
       - internal
 
@@ -30,7 +29,6 @@ services:
   postgres:
     profiles: ["postgres"]
     image: postgres:16-alpine
-    container_name: techpanda_postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-techpanda}
@@ -51,7 +49,6 @@ services:
   tunnel:
     profiles: ["cloudflare"]
     image: cloudflare/cloudflared:latest
-    container_name: techpanda_tunnel
     restart: unless-stopped
     command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:-}
     env_file:

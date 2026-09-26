@@ -123,6 +123,12 @@ On a fresh Ubuntu/Debian server, run this single command:
 git clone -b main https://github.com/arslansadiq87/techpanda-inventory.git ~/techpanda_inventory && cd ~/techpanda_inventory && chmod +x deploy.sh && ./deploy.sh
 ```
 
+The default deployment uses SQLite and listens on port 8000. If another
+application already uses that host port, add `APP_PORT=8001` (or another free
+port) to the server-only `.env` before running `./deploy.sh`. PostgreSQL is
+optional and must be enabled explicitly with its own password.
+The deployment summary prints the final host port and the complete Web/API URLs.
+
 The script fetches the complete repository, installs Docker and Docker Compose if needed, asks for the optional Cloudflare Tunnel Token and initial application admin password, generates the JWT secret, builds the containers, runs migrations, and starts the application.
 
 For a later update on the same server:
