@@ -146,6 +146,9 @@ class Location(Base):
     bin: Mapped[str | None] = mapped_column(String(80))
     description: Mapped[str | None] = mapped_column(Text)
     qr_code_value: Mapped[str | None] = mapped_column(String(160), unique=True)
+    # Kept as explicit state so ORM construction and API updates both accept
+    # generate_qr_code. qr_code_value remains the canonical encoded value.
+    generate_qr_code: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_favorite: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)

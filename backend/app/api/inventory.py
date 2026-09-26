@@ -338,6 +338,7 @@ def add_location(payload: LocationCreate, db: Session = Depends(get_db), _user: 
     generate_qr = data.pop("generate_qr_code", False)
     location = Location(
         workspace_id=workspace.id,
+        generate_qr_code=generate_qr,
         **{key: value.strip() if isinstance(value, str) else value for key, value in data.items() if value is not None}
     )
     db.add(location)
@@ -371,8 +372,10 @@ def update_location(location_id: str, payload: LocationUpdate, db: Session = Dep
         changes["name"] = new_name
     generate_qr = changes.pop("generate_qr_code", None)
     if generate_qr is True:
+        location.generate_qr_code = True
         location.qr_code_value = f"location:{location.id}"
     elif generate_qr is False:
+        location.generate_qr_code = False
         location.qr_code_value = None
     for key, value in changes.items():
         setattr(location, key, value.strip() if isinstance(value, str) else value)
