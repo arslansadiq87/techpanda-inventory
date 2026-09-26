@@ -1474,23 +1474,6 @@ def remove_project_component(
     if not project_component:
         raise HTTPException(status_code=404, detail="Project component not found")
 
-    create_transaction(
-        db,
-        TransactionCreate(
-            transaction_type="return",
-            idempotency_key=f"project-remove-{project_component.id}-{uuid4()}",
-            project_id=project_id,
-            reason="Component removed from project",
-            lines=[
-                {
-                    "component_id": component_id,
-                    "quantity": Decimal(project_component.quantity),
-                    "notes": "Returned after removal from project",
-                }
-            ],
-        ),
-        user.id,
-    )
     is_active = project.status in {"In Progress", "Completed"}
     if is_active:
         create_transaction(
