@@ -10,6 +10,13 @@
   <a href="https://www.youtube.com/@TechPanda-4k">Visit the TechPanda YouTube Channel</a>
 </p>
 
+<p> 
+  <p align="center">
+  <img src="PCBlogo.png" alt="JLCPCB logo" width="150">
+</p>
+  New users receive $123 in coupons. Order now:  https://jlcpcb.com?from=PPOAXWDGOGZXJOSA  . JLCPCB provides seamless workflows, transparent pricing, and verified quality for 1-4 layer PCBs – design in EDA, order PCB 
+</p>
+
 Local-only electronics inventory for components, modules, boards, tools, consumables, projects, stock movement, images, reports, and backups.
 
 ## Stack
