@@ -19,7 +19,7 @@ COPY . .
 RUN mkdir -p /app/data /app/media
 
 # Run database migrations then start the server
-CMD ["sh", "-c", "alembic upgrade head || alembic stamp head; gunicorn app.main:app \
+CMD ["sh", "-c", "alembic upgrade head && gunicorn app.main:app \
   --workers 2 \
   --worker-class uvicorn.workers.UvicornWorker \
   --bind 0.0.0.0:8000 \

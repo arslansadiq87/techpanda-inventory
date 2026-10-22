@@ -320,21 +320,26 @@ def list_locations(
     return list(db.scalars(stmt.order_by(Location.name, Location.cabinet, Location.shelf, Location.drawer, Location.box, Location.bin)))
 
 
+def _location_duplicate_query(workspace_id: str, values: dict, exclude_id: str | None = None):
+    stmt = select(Location).where(Location.workspace_id == workspace_id, Location.is_active.is_(True))
+    for field in ("name", "cabinet", "shelf", "drawer", "box", "bin"):
+        value = values.get(field)
+        normalized = value.strip().lower() if isinstance(value, str) else ""
+        stmt = stmt.where(func.lower(func.coalesce(getattr(Location, field), "")) == normalized)
+    if exclude_id is not None:
+        stmt = stmt.where(Location.id != exclude_id)
+    return stmt
+
+
 @router.post("/locations", response_model=LocationRead)
 def add_location(payload: LocationCreate, db: Session = Depends(get_db), _user: User = Depends(require_roles("owner", "editor"))) -> Location:
     workspace = get_workspace(db)
-    location = Location(workspace_id=workspace.id, **{key: value.strip() if isinstance(value, str) else value for key, value in payload.model_dump().items()})
     name = payload.name.strip()
-    existing = db.scalar(
-        select(Location).where(
-            Location.workspace_id == workspace.id,
-            func.lower(Location.name) == name.lower(),
-            Location.is_active.is_(True),
-        )
-    )
-    if existing:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Location '{name}' already exists")
     data = payload.model_dump()
+    existing = db.scalar(_location_duplicate_query(workspace.id, data))
+    if existing:
+        display_name = " / ".join(str(data[field]).strip() for field in ("name", "cabinet", "shelf", "drawer", "box", "bin") if data.get(field) and str(data[field]).strip())
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Location '{display_name}' already exists")
     generate_qr = data.pop("generate_qr_code", False)
     location = Location(
         workspace_id=workspace.id,
@@ -357,19 +362,14 @@ def update_location(location_id: str, payload: LocationUpdate, db: Session = Dep
     if not location or location.workspace_id != workspace.id:
         raise HTTPException(status_code=404, detail="Location not found")
     changes = payload.model_dump(exclude_unset=True)
-    if "name" in changes and changes["name"] is not None:
-        new_name = changes["name"].strip()
-        existing = db.scalar(
-            select(Location).where(
-                Location.workspace_id == workspace.id,
-                func.lower(Location.name) == new_name.lower(),
-                Location.id != location.id,
-                Location.is_active.is_(True),
-            )
-        )
+    if any(field in changes for field in ("name", "cabinet", "shelf", "drawer", "box", "bin")):
+        candidate = {field: changes.get(field, getattr(location, field)) for field in ("name", "cabinet", "shelf", "drawer", "box", "bin")}
+        existing = db.scalar(_location_duplicate_query(workspace.id, candidate, location.id))
         if existing:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Location '{new_name}' already exists")
-        changes["name"] = new_name
+            display_name = " / ".join(str(candidate[field]).strip() for field in ("name", "cabinet", "shelf", "drawer", "box", "bin") if candidate[field] and str(candidate[field]).strip())
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Location '{display_name}' already exists")
+        if changes.get("name") is not None:
+            changes["name"] = changes["name"].strip()
     generate_qr = changes.pop("generate_qr_code", None)
     if generate_qr is True:
         location.generate_qr_code = True

@@ -689,11 +689,10 @@ class LocalInventoryClient extends ApiClient {
       final duplicate = store.locations.any(
         (l) =>
             (l['is_active'] != false) &&
-            ((l['name'] as String?)?.trim().toLowerCase() ==
-                locName.toLowerCase()),
+            _sameLocationPath(l, payload),
       );
       if (duplicate) {
-        throw ApiException(409, "Location '$locName' already exists");
+        throw ApiException(409, "Location '${_displayName(payload)}' already exists");
       }
     }
 
@@ -720,23 +719,21 @@ class LocalInventoryClient extends ApiClient {
       return _remoteClient!.updateLocation(id, payload);
     }
     final store = await _LocalStore.load();
-    if (payload.containsKey('name')) {
-      final locName = (payload['name'] as String?)?.trim() ?? '';
-      if (locName.isNotEmpty) {
-        final duplicate = store.locations.any(
-          (l) =>
-              l['id'] != id &&
-              (l['is_active'] != false) &&
-              ((l['name'] as String?)?.trim().toLowerCase() ==
-                  locName.toLowerCase()),
-        );
-        if (duplicate) {
-          throw ApiException(409, "Location '$locName' already exists");
-        }
+    final item = _byId(store.locations, id, 'Location');
+    if (const ['name', 'cabinet', 'shelf', 'drawer', 'box', 'bin']
+        .any(payload.containsKey)) {
+      final candidate = {...item, ...payload};
+      final duplicate = store.locations.any(
+        (l) =>
+            l['id'] != id &&
+            (l['is_active'] != false) &&
+            _sameLocationPath(l, candidate),
+      );
+      if (duplicate) {
+        throw ApiException(409, "Location '${_displayName(candidate)}' already exists");
       }
     }
 
-    final item = _byId(store.locations, id, 'Location');
     item.addAll(payload);
     if (payload.containsKey('generate_qr_code')) {
       if (payload['generate_qr_code'] == true) {
@@ -1813,6 +1810,14 @@ String _displayName(Map<String, dynamic> location) {
       .map((key) => location[key])
       .where((value) => value != null && '$value'.trim().isNotEmpty)
       .join(' / ');
+}
+
+bool _sameLocationPath(Map<String, dynamic> a, Map<String, dynamic> b) {
+  return const ['name', 'cabinet', 'shelf', 'drawer', 'box', 'bin'].every(
+    (key) =>
+        ((a[key] as String?) ?? '').trim().toLowerCase() ==
+        ((b[key] as String?) ?? '').trim().toLowerCase(),
+  );
 }
 
 Map<String, dynamic> _transactionLine(
